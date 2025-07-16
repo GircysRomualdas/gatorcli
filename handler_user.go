@@ -3,9 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"log"
+	"time"
 
 	"github.com/GircysRomualdas/gatorcli/internal/database"
 	"github.com/google/uuid"
@@ -63,5 +62,22 @@ func handlerReset(s *state, cmd command) error {
 		return fmt.Errorf("error: couldn't reset users: %v", err)
 	}
 	fmt.Println("Users reset successfully!")
+	return nil
+}
+
+func handlerUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("error: couldn't get users: %v", err)
+	}
+
+	for _, user := range users {
+		if user.Name == s.config.CurrentUserName {
+			fmt.Printf("* %s (current)\n", user.Name)
+			continue
+		}
+		fmt.Printf("* %s\n", user.Name)
+
+	}
 	return nil
 }
