@@ -9,17 +9,20 @@ import (
 	"github.com/google/uuid"
 )
 
-const feedURL = "https://www.wagslane.dev/index.xml"
-
 func handlerAgg(s *state, cmd command) error {
-	feed, err := fetchFeed(context.Background(), feedURL)
-	if err != nil {
-		return err
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: %s <time>", cmd.Name)
 	}
+	time_between_reqs, err := time.ParseDuration(cmd.Args[0])
+	if err != nil {
+		return fmt.Errorf("error: failed to parse duration: %w", err)
+	}
+	fmt.Printf("Collecting feeds every %s\n", time_between_reqs)
 
-	fmt.Printf("%+v\n", feed)
-
-	return nil
+	ticker := time.NewTicker(time_between_reqs)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -74,4 +77,25 @@ func handlerFeeds(s *state, cmd command) error {
 		fmt.Printf("User: %s\n", user.Name)
 	}
 	return nil
+}
+
+func scrapeFeeds(s *state) {
+	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return
+	}
+
+	err = s.db.MarkFeedFetched(context.Background(), nextFeed.ID)
+	if err != nil {
+		return
+	}
+
+	rssFeed, err := fetchFeed(context.Background(), nextFeed.Url)
+	if err != nil {
+		return
+	}
+
+	for _, item := range rssFeed.Channel.Item {
+		fmt.Printf("Title: %s\n", item.Title)
+	}
 }
