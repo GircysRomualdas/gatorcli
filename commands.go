@@ -23,3 +23,19 @@ func (c *commands) run(s *state, cmd command) error {
 
 	return handler(s, cmd)
 }
+
+func getCommands() *commands {
+	cmds := commands{
+		registeredCommands: make(map[string]func(*state, command) error),
+	}
+	registerCommands(&cmds)
+	return &cmds
+}
+
+func registerCommands(cmds *commands) {
+	cmds.register("login", handlerLogin)
+	cmds.register("register", handlerRegister)
+	cmds.register("reset", handlerReset)
+	cmds.register("users", handlerUsers)
+	cmds.register("agg", handlerAgg)
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -16,22 +17,26 @@ type state struct {
 	db     *database.Queries
 }
 
-func main() {
+func getState() (*state, error) {
 	cfg, err := config.Read()
 	if err != nil {
-		log.Fatalf("error reading config: %v", err)
+		return nil, fmt.Errorf("error reading config: %v", err)
 	}
 
-	programState := &state{
+	state := &state{
 		config: &cfg,
 	}
-	cmds := commands{
-		registeredCommands: make(map[string]func(*state, command) error),
+
+	return state, nil
+}
+
+func main() {
+	programState, err := getState()
+	if err != nil {
+		log.Fatal(err)
 	}
-	cmds.register("login", handlerLogin)
-	cmds.register("register", handlerRegister)
-	cmds.register("reset", handlerReset)
-	cmds.register("users", handlerUsers)
+
+	cmds := getCommands()
 
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: cli <command> [args...]")
