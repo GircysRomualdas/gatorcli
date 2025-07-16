@@ -56,3 +56,12 @@ func handlerRegister(s *state, cmd command) error {
 	s.config.SetUser(user.Name)
 	return nil
 }
+
+func handlerReset(s *state, cmd command) error {
+	err := s.db.DeleteAllUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("error: couldn't reset users: %v", err)
+	}
+	fmt.Println("Users reset successfully!")
+	return nil
+}
