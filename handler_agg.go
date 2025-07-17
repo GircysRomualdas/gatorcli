@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/GircysRomualdas/gatorcli/internal/database"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 func handlerAgg(s *state, cmd command) error {
@@ -82,20 +84,52 @@ func handlerFeeds(s *state, cmd command) error {
 func scrapeFeeds(s *state) {
 	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
 	if err != nil {
+		fmt.Println("error: failed to get next feed to fetch")
 		return
 	}
 
 	err = s.db.MarkFeedFetched(context.Background(), nextFeed.ID)
 	if err != nil {
+		fmt.Println("error: failed to mark feed fetched")
 		return
 	}
 
 	rssFeed, err := fetchFeed(context.Background(), nextFeed.Url)
 	if err != nil {
+		fmt.Println("error: failed to fetch RSS feed")
 		return
 	}
 
 	for _, item := range rssFeed.Channel.Item {
-		fmt.Printf("Title: %s\n", item.Title)
+		t, err := time.Parse(time.RFC1123Z, item.PubDate)
+		publishedAt := sql.NullTime{}
+		if err == nil {
+			publishedAt.Time = t
+			publishedAt.Valid = true
+		} else {
+			publishedAt.Valid = false
+		}
+		_, err = s.db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:        uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Title:     item.Title,
+			Url:       item.Link,
+			Description: sql.NullString{
+				String: item.Description,
+				Valid:  item.Description != "",
+			},
+			PublishedAt: publishedAt,
+			FeedID:      nextFeed.ID,
+		})
+		if err != nil {
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Code == "23505" {
+					continue
+				}
+			}
+			fmt.Printf("error creating post: %s", err)
+		}
+		fmt.Println("post created")
 	}
 }
